@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"go1fl-sprint6-final-tpl-mnn/internal/service"
-	"go1fl-sprint6-final-tpl-mnn/pkg/morse"
 	"io"
 	"net/http"
 	"os"
@@ -12,8 +11,12 @@ import (
 )
 
 func HandleUpload(w http.ResponseWriter, r *http.Request) {
-	var dst_data, dst_file string
+	var dst_file string
 
+	if r.Method != "POST" {
+		http.Error(w, "Использован неправильный метод", http.StatusBadRequest)
+		return
+	}
 	// 1. Парсить html-форму из файла index.html.
 	r.ParseMultipartForm(10 << 20) // 10 MB
 
@@ -35,12 +38,7 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//4. Передать эти данные в функцию автоопределения из пакета service, которую вы создали, чтобы получить переконвертируемую строку.
-	strData := string(data)
-	if service.IsMorseCode(strData) {
-		dst_data = morse.ToText(strData)
-	} else {
-		dst_data = morse.ToMorse(strData)
-	}
+	dst_data := service.Conver(string(data))
 
 	// 5. Создать локальный файл. Эта операция обычно небезопасна и так делать не рекомендуется, но в рамках нашего задания хотелось бы более наглядного результата, поэтому мы решились
 	// на этот шаг, ради видимого результата. А вообще, обычно используют временные файлы.
@@ -57,7 +55,11 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 
 	// 7. Вернуть результат конвертации строки.
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(dst_data))
+	_, err = w.Write([]byte(dst_data))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error writing: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func HandleMain(w http.ResponseWriter, r *http.Request) {
@@ -69,5 +71,9 @@ func HandleMain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write(data)
+	_, err = w.Write(data)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error writing: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
